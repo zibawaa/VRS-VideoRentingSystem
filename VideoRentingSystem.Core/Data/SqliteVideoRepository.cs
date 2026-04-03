@@ -1,3 +1,5 @@
+// Creates/opens the SQLite file and runs the CREATE TABLE statements once. VideoStore still owns the "business logic" layer;
+// this class is basically "read rows, write rows" so we can swap storage later if needed.
 using Microsoft.Data.Sqlite;
 using VideoRentingSystem.Core.Models;
 
@@ -38,6 +40,23 @@ public sealed class SqliteVideoRepository : IVideoRepository
                                           Genre TEXT NOT NULL,
                                           ReleaseYear INTEGER NOT NULL,
                                           IsRented INTEGER NOT NULL DEFAULT 0
+                                      );
+
+                                      CREATE TABLE IF NOT EXISTS Users
+                                      (
+                                          UserId INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                                          Username TEXT NOT NULL UNIQUE,
+                                          PasswordHash TEXT NOT NULL
+                                      );
+
+                                      CREATE TABLE IF NOT EXISTS Rentals
+                                      (
+                                          UserId INTEGER NOT NULL,
+                                          VideoId INTEGER NOT NULL,
+                                          RentDate TEXT NOT NULL,
+                                          PRIMARY KEY(UserId, VideoId),
+                                          FOREIGN KEY(UserId) REFERENCES Users(UserId),
+                                          FOREIGN KEY(VideoId) REFERENCES Videos(VideoId)
                                       );
                                       """;
 

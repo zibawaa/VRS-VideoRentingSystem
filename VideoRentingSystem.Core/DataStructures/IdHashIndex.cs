@@ -1,3 +1,4 @@
+// Separate-chaining hash table for VideoId → Video. Gives us fast rent/return lookups without scanning the whole catalogue.
 using VideoRentingSystem.Core.Models;
 
 namespace VideoRentingSystem.Core.DataStructures;

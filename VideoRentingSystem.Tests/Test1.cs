@@ -1,3 +1,4 @@
+// Quick safety checks around VideoStore + UserStore. Naming matches how we explain the features in the demo + report.
 using VideoRentingSystem.Core.Core;
 using VideoRentingSystem.Core.Data;
 using VideoRentingSystem.Core.Models;
@@ -7,6 +8,7 @@ namespace VideoRentingSystem.Tests;
 [TestClass]
 public sealed class VideoStoreTests
 {
+    // Happy path: one insert, then exercise both indexes (numeric ID lookup + title search after normalisation).
     [TestMethod]
     public void AddVideo_ShouldStoreAndFindByIdAndTitle()
     {
@@ -25,6 +27,7 @@ public sealed class VideoStoreTests
         Assert.AreEqual(1, foundByTitle[0].VideoId);
     }
 
+    // Hash table should reject a second video reusing the same primary key.
     [TestMethod]
     public void AddVideo_DuplicateId_ShouldFail()
     {
@@ -37,6 +40,7 @@ public sealed class VideoStoreTests
         Assert.AreEqual(1, store.Count);
     }
 
+    // Proves the AVL in-order walk matches alphabetical order required in the brief examples.
     [TestMethod]
     public void DisplayAllVideos_ShouldReturnTitleSortedOrder()
     {
@@ -53,16 +57,17 @@ public sealed class VideoStoreTests
         Assert.AreEqual("Zodiac", ordered[2].Title);
     }
 
+    // Basic state machine: rent once, block duplicate rent, return once, block duplicate return.
     [TestMethod]
     public void RentAndReturn_ShouldToggleRentalState()
     {
         VideoStore store = new();
         store.AddVideo(new Video(10, "The Matrix", "Sci-Fi", 1999));
 
-        bool rentOk = store.RentVideo(10);
-        bool rentAgain = store.RentVideo(10);
-        bool returnOk = store.ReturnVideo(10);
-        bool returnAgain = store.ReturnVideo(10);
+        bool rentOk = store.RentVideo(10, 500);
+        bool rentAgain = store.RentVideo(10, 500);
+        bool returnOk = store.ReturnVideo(10, 500);
+        bool returnAgain = store.ReturnVideo(10, 500);
 
         Assert.IsTrue(rentOk);
         Assert.IsFalse(rentAgain);
@@ -85,6 +90,7 @@ public sealed class VideoStoreTests
         Assert.IsEmpty(titleMatches);
     }
 
+    // FakeRepository mimics SQLite just enough to ensure VideoStore calls Upsert/Delete when we expect.
     [TestMethod]
     public void RepositoryIntegration_ShouldPersistOperations()
     {
@@ -92,7 +98,7 @@ public sealed class VideoStoreTests
         VideoStore store = new(repo);
         store.AddVideo(new Video(1, "Inception", "Sci-Fi", 2010));
         store.AddVideo(new Video(2, "Titanic", "Drama", 1997));
-        store.RentVideo(2);
+        store.RentVideo(2, 500);
         store.RemoveVideo(1);
 
         Video[] all = repo.LoadAllVideos();
@@ -159,5 +165,59 @@ public sealed class VideoStoreTests
                 }
             }
         }
+    }
+}
+
+[TestClass]
+public sealed class UserStoreTests
+{
+    // Register once, block duplicate username, then make sure Login compares hashes the same way Register stored them.
+    [TestMethod]
+    public void UserStore_ShouldRegisterAndAuthenticate()
+    {
+        UserStore userStore = new();
+        bool registered = userStore.RegisterUser("john", "password123");
+        bool duplicate = userStore.RegisterUser("john", "otherpass");
+
+        Assert.IsTrue(registered);
+        Assert.IsFalse(duplicate);
+
+        User? successLogin = userStore.Login("john", "password123");
+        User? failedLogin = userStore.Login("john", "wrongpass");
+
+        Assert.IsNotNull(successLogin);
+        Assert.IsNull(failedLogin);
+        Assert.AreEqual("john", successLogin.Username);
+    }
+    
+    // Ensures per-user rental map logic matches the "cannot return someone else's tape" rule from the demo script.
+    [TestMethod]
+    public void VideoStore_RentAndReturnWithUser_ShouldTrackRentals()
+    {
+        VideoStore store = new();
+        store.AddVideo(new Video(10, "The Matrix", "Sci-Fi", 1999));
+        store.AddVideo(new Video(11, "Inception", "Sci-Fi", 2010));
+
+        store.RentVideo(10, 500); // Rented by User 500
+        store.RentVideo(11, 600); // Rented by User 600
+
+        Video[] user500Rentals = store.GetUserRentedVideos(500);
+        Video[] user600Rentals = store.GetUserRentedVideos(600);
+
+        Assert.HasCount(1, user500Rentals);
+        Assert.AreEqual(10, user500Rentals[0].VideoId);
+
+        Assert.HasCount(1, user600Rentals);
+        Assert.AreEqual(11, user600Rentals[0].VideoId);
+
+        // Cannot return someone else's video
+        bool returnFailed = store.ReturnVideo(10, 600);
+        Assert.IsFalse(returnFailed, "User 600 cannot return User 500's video");
+
+        // Can return own video
+        bool returnSuccess = store.ReturnVideo(10, 500);
+        Assert.IsTrue(returnSuccess);
+
+        Assert.HasCount(0, store.GetUserRentedVideos(500));
     }
 }

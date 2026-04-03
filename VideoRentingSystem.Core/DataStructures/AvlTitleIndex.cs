@@ -1,3 +1,5 @@
+// AVL tree keyed by the normalised title string. Coursework wants a custom structure for title search + sorted catalogue walks,
+// so we did not use SortedDictionary here — the report has the Big-O justification our marker asked for.
 using VideoRentingSystem.Core.Models;
 
 namespace VideoRentingSystem.Core.DataStructures;

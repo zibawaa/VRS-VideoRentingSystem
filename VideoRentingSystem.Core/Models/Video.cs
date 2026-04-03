@@ -1,3 +1,5 @@
+// Plain data holder for one tape/stream entry. Properties use private set so only methods like UpdateDetails can mutate state,
+// which makes it obvious where business rules (validation) live when we read the file later.
 namespace VideoRentingSystem.Core.Models;
 
 public sealed class Video
