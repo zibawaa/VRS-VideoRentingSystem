@@ -1,5 +1,3 @@
-// Handles registration/login only. We store hashes instead of plaintext passwords because the coursework brief calls that out,
-// even though our hashing function is deliberately tiny (easy to read in a viva, not safe for real apps).
 using VideoRentingSystem.Core.Data;
 using VideoRentingSystem.Core.DataStructures;
 using VideoRentingSystem.Core.Models;
@@ -15,6 +13,7 @@ public sealed class UserStore
     {
         _userIndex = new UserBstIndex();
         _repository = repository;
+        // BST keys are lowercased usernames for case-insensitive login
     }
 
     public int Count => _userIndex.Count;
@@ -30,6 +29,7 @@ public sealed class UserStore
         for (int i = 0; i < users.Length; i++)
         {
             _userIndex.Add(users[i]);
+            // insert order does not matter; tree sorts by username for inorder export
         }
     }
 
@@ -41,22 +41,20 @@ public sealed class UserStore
         }
 
         string trimmedUsername = username.Trim();
-        User? existing = _userIndex.SearchByUsername(trimmedUsername);
-
-        if (existing != null)
+        if (_userIndex.SearchByUsername(trimmedUsername) != null)
         {
-            // Easiest UX: refuse duplicates instead of silently overwriting — avoids "where did my account go" confusion.
             return false;
+            // duplicate username rejected at tree layer
         }
 
         string passwordHash = ComputeSimpleHash(password);
+        // Coursework stub: not salted PBKDF2/Argon2 — fine for local demo only.
 
-        // Cheap deterministic IDs for coursework — production code would ask the database for an identity/sequence value.
         int nextId = _userIndex.Count + 1000;
         User newUser = new User(nextId, trimmedUsername, passwordHash);
+        // simple id scheme avoids sqlite autoincrement coupling in the coursework brief
 
         bool added = _userIndex.Add(newUser);
-
         if (added)
         {
             _repository?.InsertUser(newUser);
@@ -86,9 +84,9 @@ public sealed class UserStore
         }
 
         return null;
+        // wrong password yields null just like unknown user
     }
 
-    // Not SHA256 on purpose — we wanted something we could explain line-by-line without pulling in extra crypto APIs.
     private string ComputeSimpleHash(string input)
     {
         int hash = 0;
@@ -98,5 +96,6 @@ public sealed class UserStore
         }
 
         return hash.ToString("X8");
+        // deterministic short string comparable to stored PasswordHash
     }
 }

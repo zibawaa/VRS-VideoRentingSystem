@@ -1,4 +1,3 @@
-// Binary search tree on username for log-in lookups. We picked BST over AVL here because user count stays small in the demo.
 using VideoRentingSystem.Core.Models;
 
 namespace VideoRentingSystem.Core.DataStructures;
@@ -33,13 +32,12 @@ public sealed class UserBstIndex
 
         string key = user.Username.ToLowerInvariant();
         bool inserted = false;
-
         _root = AddRecursive(_root, key, user, ref inserted);
-        
         if (inserted)
         {
             _count++;
         }
+        // normalise case, recurse, bump count only when a new username lands
 
         return inserted;
     }
@@ -53,23 +51,16 @@ public sealed class UserBstIndex
 
         string key = username.ToLowerInvariant();
         Node? current = _root;
-
         while (current != null)
         {
             int comparison = string.CompareOrdinal(key, current.Key);
-
             if (comparison == 0)
             {
                 return current.Value;
             }
-            else if (comparison < 0)
-            {
-                current = current.Left;
-            }
-            else
-            {
-                current = current.Right;
-            }
+
+            current = comparison < 0 ? current.Left : current.Right;
+            // iterative bst descent avoids stack depth on skewed inserts
         }
 
         return null;
@@ -86,6 +77,7 @@ public sealed class UserBstIndex
         int index = 0;
         InOrderTraversal(_root, users, ref index);
         return users;
+        // inorder over usernames yields alphabetically sorted users for debugging or export
     }
 
     private Node AddRecursive(Node? node, string key, User user, ref bool inserted)
@@ -94,10 +86,10 @@ public sealed class UserBstIndex
         {
             inserted = true;
             return new Node(key, user);
+            // reached an empty child link so allocate the new node
         }
 
         int comparison = string.CompareOrdinal(key, node.Key);
-
         if (comparison < 0)
         {
             node.Left = AddRecursive(node.Left, key, user, ref inserted);
@@ -108,7 +100,8 @@ public sealed class UserBstIndex
         }
         else
         {
-            inserted = false; // duplicate username
+            inserted = false;
+            // duplicate key means duplicate username registration attempt
         }
 
         return node;

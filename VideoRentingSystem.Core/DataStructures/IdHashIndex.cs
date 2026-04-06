@@ -1,4 +1,3 @@
-// Separate-chaining hash table for VideoId → Video. Gives us fast rent/return lookups without scanning the whole catalogue.
 using VideoRentingSystem.Core.Models;
 
 namespace VideoRentingSystem.Core.DataStructures;
@@ -30,6 +29,7 @@ public sealed class IdHashIndex
             initialCapacity = 3;
         }
 
+        // Odd prime length spreads consecutive integer ids across buckets better than a power of two.
         _buckets = new Entry?[NextPrime(initialCapacity)];
         _maxLoadFactor = maxLoadFactor <= 0.0 || maxLoadFactor >= 1.0 ? 0.75 : maxLoadFactor;
     }
@@ -111,7 +111,6 @@ public sealed class IdHashIndex
     {
         Video[] all = new Video[_count];
         int index = 0;
-
         for (int i = 0; i < _buckets.Length; i++)
         {
             Entry? current = _buckets[i];
@@ -128,7 +127,6 @@ public sealed class IdHashIndex
     private void Resize(int newCapacity)
     {
         Entry?[] newBuckets = new Entry?[newCapacity];
-
         for (int i = 0; i < _buckets.Length; i++)
         {
             Entry? current = _buckets[i];
@@ -154,7 +152,6 @@ public sealed class IdHashIndex
     private static int NextPrime(int start)
     {
         int candidate = start % 2 == 0 ? start + 1 : start;
-
         while (!IsPrime(candidate))
         {
             candidate += 2;

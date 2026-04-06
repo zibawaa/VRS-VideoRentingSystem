@@ -1,5 +1,3 @@
-// Minimal user record: an id, the login name, and the hash we compare against on sign-in. We never expose the hash through
-// the UI — it is only for storage and tests.
 namespace VideoRentingSystem.Core.Models;
 
 public sealed class User
@@ -28,5 +26,6 @@ public sealed class User
         UserId = userId;
         Username = username.Trim();
         PasswordHash = passwordHash;
+        // usernames are trimmed everywhere so tree search stays consistent with registration
     }
 }

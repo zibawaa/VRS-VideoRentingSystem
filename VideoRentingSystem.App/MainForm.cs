@@ -1,5 +1,3 @@
-// Main window for the video shop. We kept all UI code here on purpose so it is easy to find while we are still
-// learning WinForms — splitting into lots of small files looked clever but made it harder to jump around in lectures.
 using System.Drawing.Drawing2D;
 using VideoRentingSystem.Core.Core;
 using VideoRentingSystem.Core.Data;
@@ -9,7 +7,6 @@ namespace VideoRentingSystem.App;
 
 public sealed class MainForm : Form
 {
-    // One place to track which "screen" we are faking (catalogue, rentals, etc.). Enums read nicer than magic numbers.
     private enum ViewMode
     {
         Library,
@@ -48,7 +45,6 @@ public sealed class MainForm : Form
     private UserStore? _userStore;
     private User? _currentUser;
     private ViewMode _viewMode = ViewMode.Library;
-    // Starred titles for the "Saved" tab. In-memory only for now so we don't have to change the database coursework script mid-semester.
     private readonly HashSet<int> _savedVideoIds = [];
     private readonly string _databasePath;
     private readonly Font _titleFont = new("Segoe UI Semibold", 13F, FontStyle.Bold, GraphicsUnit.Point);
@@ -58,11 +54,11 @@ public sealed class MainForm : Form
 
     public MainForm()
     {
-        // Store the database next to other per-user app data so we don't need admin rights.
         _databasePath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "VideoRentingSystem",
             "videos.db");
+        // sqlite file lives under LocalAppData so it persists per windows user
 
         Text = "VRS — Video Renting";
         ClientSize = new Size(1180, 720);
@@ -70,8 +66,8 @@ public sealed class MainForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = VrsBlack;
         Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
-        // Form-level double buffer stops the whole window flashing when we repaint; FlowLayoutPanel does not get this for free.
         DoubleBuffered = true;
+        // window chrome: title, size, centre on screen, theme colours, default font, less flicker on resize
 
         Panel bottomStatus = new()
         {
@@ -80,6 +76,7 @@ public sealed class MainForm : Form
             BackColor = Color.FromArgb(18, 18, 22),
             Padding = new Padding(12, 4, 12, 0)
         };
+        // thin strip docked to the bottom for status text
 
         _lblStatus = new Label
         {
@@ -89,11 +86,14 @@ public sealed class MainForm : Form
             Text = "Status: Initializing...",
             TextAlign = ContentAlignment.MiddleLeft
         };
+        // fills the status strip and shows ready and error messages
+
         bottomStatus.Controls.Add(_lblStatus);
 
         Panel bottomNav = BuildBottomNav();
         bottomNav.Dock = DockStyle.Bottom;
         bottomNav.Height = 58;
+        // browse rented saved account upload row above the status strip
 
         _cardsPanel = new FlowLayoutPanel
         {
@@ -103,33 +103,32 @@ public sealed class MainForm : Form
             Padding = new Padding(20, 12, 20, 12),
             WrapContents = true
         };
-        // We tried switching on DoubleBuffered for the card panel via reflection, but it is confusing when you are new to C#
-        // and it still flickers a bit anyway — skipping keeps the mental model simpler.
+        // main catalogue area where cards or account admin panels go
 
         Panel mainFill = new()
         {
             Dock = DockStyle.Fill,
             BackColor = VrsPanel
         };
+        // wrapper so the flow panel can fill between header and bottom chrome
+
         mainFill.Controls.Add(_cardsPanel);
 
         Panel header = BuildHeader();
         header.Dock = DockStyle.Top;
-        // Slightly taller header so the logo row + search row never feel squashed on smaller laptops.
         header.Height = 124;
+        // logo, search row, and header logout
 
-        // Dock order: fill area first, then top chrome, then bottom bars. WinForms stacks multiple Bottom docks bottom-to-top.
         Controls.Add(mainFill);
         Controls.Add(header);
         Controls.Add(bottomNav);
         Controls.Add(bottomStatus);
+        // dock order: fill first then top and bottom bars so layout stacks correctly
 
         InitializeStoreWithPreloadedData();
+        // load db, seed if empty, open browse view
     }
 
-    // ------- VRS logo row -------
-    // We originally drew "VRS" with GraphicsPath to mimic the hollow Figma text, but on some machines the bottoms of the
-    // letters were clipped. Plain Labels auto-size correctly, so we traded the hollow look for something stable.
     private Panel BuildBrandHeader()
     {
         Panel host = new()
@@ -138,6 +137,7 @@ public sealed class MainForm : Form
             Height = 58,
             BackColor = VrsBlack
         };
+        // black band that holds the centred brand row
 
         FlowLayoutPanel row = new()
         {
@@ -147,6 +147,7 @@ public sealed class MainForm : Form
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
             BackColor = VrsBlack
         };
+        // horizontal strip: emoji then VRS wordmark
 
         Label lblCam = new()
         {
@@ -167,6 +168,7 @@ public sealed class MainForm : Form
             Margin = new Padding(0, 0, 0, 4),
             BackColor = VrsBlack
         };
+        // camera emoji plus red bold VRS text matching the coursework mock-up
 
         row.Controls.Add(lblCam);
         row.Controls.Add(lblVrs);
@@ -177,13 +179,14 @@ public sealed class MainForm : Form
             row.Left = Math.Max(0, (host.Width - row.Width) / 2);
             row.Top = Math.Max(0, (host.Height - row.Height) / 2);
         }
+        // keep the brand row centred when the window or host resizes
 
         host.Layout += CenterRow;
         host.Resize += CenterRow;
+
         return host;
     }
 
-    // Bottom strip mimics the phone mock-up: big thumb-friendly targets, even though this is WinForms on desktop.
     private Panel BuildBottomNav()
     {
         Panel bar = new()
@@ -191,6 +194,7 @@ public sealed class MainForm : Form
             BackColor = Color.FromArgb(6, 6, 8),
             Padding = new Padding(16, 10, 16, 10)
         };
+        // dark padded bar behind the nav pills
 
         FlowLayoutPanel flow = new()
         {
@@ -199,29 +203,32 @@ public sealed class MainForm : Form
             WrapContents = false,
             AutoSize = false
         };
+        // single row of pill buttons left to right
 
         _btnNavLibrary = CreateNavPill("Browse", true, (_, _) => SetView(ViewMode.Library, "Browse", "RENT"));
         _btnNavRented = CreateNavPill("Rented", false, (_, _) => SetView(ViewMode.Rented, "My rentals", "RENTED"));
         _btnNavSaved = CreateNavPill("Saved", false, (_, _) => SetView(ViewMode.Saved, "Saved videos", "SAVED"));
         _btnNavAccount = CreateNavPill("Account", false, (_, _) => SetView(ViewMode.Account, "Account", ""));
-        // Admin tab stays hidden until someone logs in as the lecturer demo account "123" — same rule as before, just styled differently.
         _btnNavAdmin = CreateNavPill("Upload", false, (_, _) => SetView(ViewMode.Admin, "Upload / manage", "UPLOAD"));
+        // each handler calls SetView with the right mode, header label text, and section tag chip
         _btnNavAdmin.Visible = false;
+        // upload tab only appears after demo admin signs in
 
         flow.Controls.Add(_btnNavLibrary);
         flow.Controls.Add(_btnNavRented);
         flow.Controls.Add(_btnNavSaved);
         flow.Controls.Add(_btnNavAccount);
         flow.Controls.Add(_btnNavAdmin);
+        // add pills left to right in browse rented saved account upload order
 
         bar.Controls.Add(flow);
         return bar;
     }
 
-    // Top chrome: logout (when signed in), brand row is separate, then search controls.
     private Panel BuildHeader()
     {
         Panel header = new() { BackColor = VrsBlack };
+        // whole header: logout strip, brand, search strip
 
         _btnLogout = new Button
         {
@@ -237,13 +244,19 @@ public sealed class MainForm : Form
             Padding = new Padding(14, 6, 14, 6),
             Margin = new Padding(12, 10, 0, 0)
         };
+        // top-left pill; stays hidden until someone logs in
+
         _btnLogout.FlatAppearance.BorderColor = VrsPillBorder;
         _btnLogout.FlatAppearance.BorderSize = 1;
         _btnLogout.Region = new Region(GetRoundedPath(new Rectangle(0, 0, _btnLogout.Width, _btnLogout.Height), 14));
+        // thin outline plus rounded clip matching other pills
+
         _btnLogout.SizeChanged += (_, _) =>
         {
             _btnLogout.Region = new Region(GetRoundedPath(new Rectangle(0, 0, _btnLogout.Width, _btnLogout.Height), 14));
         };
+        // region must track auto-sized width and height
+
         _btnLogout.Click += (_, _) =>
         {
             _currentUser = null;
@@ -252,6 +265,7 @@ public sealed class MainForm : Form
             _lblStatus.Text = "Status: Logged out.";
             SetView(ViewMode.Library, "Browse", "RENT");
         };
+        // sign out resets session state and returns to the catalogue shell
 
         Panel brandHeader = BuildBrandHeader();
 
@@ -262,6 +276,7 @@ public sealed class MainForm : Form
             BackColor = VrsBlack,
             Padding = new Padding(120, 4, 120, 4)
         };
+        // holds the section tag, search host, and action buttons
 
         _lblSectionTag = new Label
         {
@@ -274,10 +289,13 @@ public sealed class MainForm : Form
             Visible = false,
             Margin = new Padding(0, 0, 12, 0)
         };
+        // small label chip; text and visibility come from SetView
+
         _lblSectionTag.SizeChanged += (_, _) =>
         {
             _lblSectionTag.Region = new Region(GetRoundedPath(new Rectangle(0, 0, _lblSectionTag.Width, _lblSectionTag.Height), 12));
         };
+        // rounded pill tracking label bounds
 
         _txtSearchTitle = new TextBox
         {
@@ -288,18 +306,21 @@ public sealed class MainForm : Form
             BorderStyle = BorderStyle.FixedSingle,
             PlaceholderText = "Search catalogue by title"
         };
+        // shared filter for library rented and saved before account hides it
 
         _btnSearch = CreateAccentPillButton("Search", false, (_, _) =>
         {
             if (!EnsureStoreReady()) return;
             RenderCards(_txtSearchTitle.Text);
         });
+        // rebind cards to the current string using the title index
 
         _btnDisplayAll = CreateMutedPillButton("Show all", (_, _) =>
         {
             _txtSearchTitle.Text = string.Empty;
             RenderCards();
         });
+        // wipes filter text then redraws the unfiltered list for this tab
 
         FlowLayoutPanel searchFlow = new()
         {
@@ -307,26 +328,37 @@ public sealed class MainForm : Form
             FlowDirection = FlowDirection.LeftToRight,
             WrapContents = false
         };
+        // horizontal layout for tag + search + buttons
 
         Panel searchHost = new() { Width = 520, Height = 36 };
+        // inner host so the textbox can stretch with spare width
+
         _txtSearchTitle.Location = new Point(0, 2);
         _txtSearchTitle.Width = searchHost.Width;
+        // align inside the host and consume its width
+
         searchHost.Controls.Add(_txtSearchTitle);
+
         searchHost.Resize += (_, _) => { _txtSearchTitle.Width = searchHost.Width; };
+        // when header width changes keep the textbox full width of host
 
         searchFlow.Controls.Add(_lblSectionTag);
         searchFlow.Controls.Add(searchHost);
         searchFlow.Controls.Add(_btnSearch);
         searchFlow.Controls.Add(_btnDisplayAll);
+        // left to right: chip, growing search, search button, reset button
 
         searchRow.Controls.Add(searchFlow);
 
         Panel topRow = new() { Dock = DockStyle.Top, Height = 40, BackColor = VrsBlack };
+        // thin bar that only contains logout so it hugs the top edge
+
         topRow.Controls.Add(_btnLogout);
 
         header.Controls.Add(searchRow);
         header.Controls.Add(brandHeader);
         header.Controls.Add(topRow);
+        // order matters for vertical docking: search bottoms out, brand fills middle, logout pins top
 
         return header;
     }
@@ -334,6 +366,8 @@ public sealed class MainForm : Form
     private Button CreateNavPill(string text, bool primary, EventHandler onClick)
     {
         Color back = primary ? VrsBurgundy : Color.FromArgb(34, 36, 46);
+        // active tab uses burgundy; inactive tabs sit on a darker grey
+
         Button b = new()
         {
             Text = text.ToUpperInvariant(),
@@ -346,6 +380,8 @@ public sealed class MainForm : Form
             BackColor = back,
             Cursor = Cursors.Hand
         };
+        // uppercase label and fixed pill footprint for the bottom nav
+
         b.FlatAppearance.BorderColor = primary ? VrsRedOutline : VrsPillBorder;
         b.FlatAppearance.BorderSize = 1;
         b.Region = new Region(GetRoundedPath(new Rectangle(0, 0, b.Width, b.Height), 10));
@@ -353,7 +389,10 @@ public sealed class MainForm : Form
         {
             b.Region = new Region(GetRoundedPath(new Rectangle(0, 0, b.Width, b.Height), 10));
         };
+        // outline plus rounded shape, refreshed whenever the button resizes
+
         b.Click += onClick;
+
         return b;
     }
 
@@ -371,6 +410,8 @@ public sealed class MainForm : Form
             Cursor = Cursors.Hand,
             Margin = new Padding(8, 0, 0, 0)
         };
+        // slightly smaller pill for header actions like login or add
+
         b.FlatAppearance.BorderColor = burgundy ? VrsRedOutline : VrsPillBorder;
         b.FlatAppearance.BorderSize = 1;
         b.Region = new Region(GetRoundedPath(new Rectangle(0, 0, b.Width, b.Height), 8));
@@ -378,7 +419,10 @@ public sealed class MainForm : Form
         {
             b.Region = new Region(GetRoundedPath(new Rectangle(0, 0, b.Width, b.Height), 8));
         };
+        // same border and rounded region pattern with a smaller radius
+
         b.Click += onClick;
+
         return b;
     }
 
@@ -396,6 +440,8 @@ public sealed class MainForm : Form
             Cursor = Cursors.Hand,
             Margin = new Padding(6, 0, 0, 0)
         };
+        // secondary style for register, remove, show all
+
         b.FlatAppearance.BorderColor = VrsPillBorder;
         b.FlatAppearance.BorderSize = 1;
         b.Region = new Region(GetRoundedPath(new Rectangle(0, 0, b.Width, b.Height), 8));
@@ -403,32 +449,47 @@ public sealed class MainForm : Form
         {
             b.Region = new Region(GetRoundedPath(new Rectangle(0, 0, b.Width, b.Height), 8));
         };
+        // muted buttons still get the same rounded hit target treatment
+
         b.Click += onClick;
+
         return b;
     }
 
-    // headerContext is reserved if we later want to mirror the Figma subtitle under the logo; tag drives the little burgundy pill.
     private void SetView(ViewMode mode, string headerContext, string tag)
     {
         _ = headerContext;
+        // reserved for a future header subtitle; call sites still pass context today
+
         _viewMode = mode;
+        // RenderCards, empty-state copy, and row-vs-tile layout all branch on this
+
         UpdateNavSelection(mode);
+        // pills are separate controls from mode, so appearance must be synced here
+
         _lblSectionTag.Visible = !string.IsNullOrEmpty(tag);
         _lblSectionTag.Text = tag;
+        // hide the chip when tag is empty (account) and set RENT vs RENTED etc from the caller
 
         bool showSearch = mode is ViewMode.Library or ViewMode.Rented or ViewMode.Saved;
+        // Account and Admin replace the grid; search only applies to catalogue-style lists
+
         _txtSearchTitle.Visible = showSearch;
         _btnSearch.Visible = showSearch;
         _btnDisplayAll.Visible = showSearch;
+        // show or hide as a set so we never surface a search box without its actions
+
         if (!showSearch)
         {
             _txtSearchTitle.Text = string.Empty;
+            // leaving Browse-style tabs should not leave hidden text affecting the next visit
         }
 
-        // Hide the global logout while you are already on the account page — there is a second logout button there.
         _btnLogout.Visible = _currentUser != null && mode != ViewMode.Account;
+        // Account panel already includes log out; the header duplicate would crowd the strip
 
         RenderCards(string.IsNullOrWhiteSpace(_txtSearchTitle.Text) ? null : _txtSearchTitle.Text);
+        // tab change can alter eligible videos; re-run query and keep typed filter when visible
     }
 
     private void UpdateNavSelection(ViewMode mode)
@@ -438,12 +499,14 @@ public sealed class MainForm : Form
         SetNavActive(_btnNavSaved, mode == ViewMode.Saved);
         SetNavActive(_btnNavAccount, mode == ViewMode.Account);
         SetNavActive(_btnNavAdmin, mode == ViewMode.Admin);
+        // exactly one pill should read as selected: library catalogue, rented list, saved ids, account card, or admin tools
     }
 
     private static void SetNavActive(Button b, bool active)
     {
         b.BackColor = active ? VrsBurgundy : Color.FromArgb(34, 36, 46);
         b.FlatAppearance.BorderColor = active ? VrsRedOutline : VrsPillBorder;
+        // active uses burgundy fill and red outline; inactive uses grey pairing
     }
 
     private TextBox CreateSmallTextBox(int left, int top, string placeholder, int width = 200)
@@ -458,7 +521,11 @@ public sealed class MainForm : Form
             ForeColor = Color.White,
             BorderStyle = BorderStyle.FixedSingle
         };
+        // shared themed field for account and admin numeric entry rows
+
         box.PlaceholderText = placeholder;
+        // hint text when empty e.g. ID or Title
+
         return box;
     }
 
@@ -471,13 +538,17 @@ public sealed class MainForm : Form
             BackColor = VrsCard,
             Margin = new Padding(8, 8, 8, 8)
         };
+        // tall card for login form or shorter card for profile summary
+
         p.Region = new Region(GetRoundedPath(new Rectangle(0, 0, p.Width, p.Height), 14));
         p.SizeChanged += (_, _) =>
         {
             p.Region = new Region(GetRoundedPath(new Rectangle(0, 0, p.Width, p.Height), 14));
         };
+        // clip the panel to rounded corners; refresh region if height changes between states
 
         Label lblTitle = new Label { Text = "Account", ForeColor = Color.White, Font = _titleFont, Left = 32, Top = 28, Width = 300 };
+
         p.Controls.Add(lblTitle);
 
         if (_currentUser != null)
@@ -492,6 +563,8 @@ public sealed class MainForm : Form
                 Width = 440,
                 Height = 48
             };
+            // who is logged in from the in-memory user model
+
             Button btnOut = CreateMutedPillButton("Log out", (_, _) =>
             {
                 _currentUser = null;
@@ -500,45 +573,63 @@ public sealed class MainForm : Form
                 _lblStatus.Text = "Status: Logged out.";
                 SetView(ViewMode.Library, "Browse", "RENT");
             });
+            // same side effects as the header logout for consistency
+
             btnOut.Left = 32;
             btnOut.Top = 140;
             btnOut.Width = 120;
+
             p.Controls.Add(lblUser);
             p.Controls.Add(btnOut);
         }
         else
         {
             int y = 78;
+
             p.Controls.Add(new Label { Text = "USERNAME", ForeColor = Color.Silver, Font = _smallLabelFont, Left = 32, Top = y, Width = 120 });
+
             TextBox tUser = CreateSmallTextBox(32, y + 22, "", 220);
+
             y += 72;
+
             p.Controls.Add(new Label { Text = "PASSWORD", ForeColor = Color.Silver, Font = _smallLabelFont, Left = 32, Top = y, Width = 120 });
+
             TextBox tPass = CreateSmallTextBox(32, y + 22, "", 220);
+
             tPass.PasswordChar = '•';
+            // mask password glyphs in the wireframe-friendly way
+
             y += 72;
+
             p.Controls.Add(new Label { Text = "REGISTER: same fields, then click Register", ForeColor = Color.Gray, Font = _smallLabelFont, Left = 32, Top = y, Width = 440 });
+
             y += 36;
 
             Button btnIn = CreateAccentPillButton("Login", true, (_, _) =>
             {
                 User? u = _userStore?.Login(tUser.Text, tPass.Text);
+
                 if (u != null)
                 {
                     _currentUser = u;
+
                     if (string.Equals(u.Username, "123", StringComparison.Ordinal))
                     {
                         _btnNavAdmin.Visible = true;
+                        // coursework demo: username 123 unlocks the upload admin strip
                     }
 
                     _btnLogout.Visible = true;
                     _lblStatus.Text = "Status: Welcome back.";
                     SetView(ViewMode.Library, "Browse", "RENT");
+                    // any successful login shows header logout and jumps back to browse tiles
                 }
                 else
                 {
                     _lblStatus.Text = "Status: Invalid login.";
                 }
             });
+
             btnIn.Left = 32;
             btnIn.Top = y;
             btnIn.Width = 100;
@@ -548,6 +639,7 @@ public sealed class MainForm : Form
                 bool reg = _userStore?.RegisterUser(tUser.Text, tPass.Text) ?? false;
                 _lblStatus.Text = reg ? "Status: Registered — you can log in." : "Status: Registration failed (duplicate user or empty fields).";
             });
+
             btnReg.Left = 148;
             btnReg.Top = y;
             btnReg.Width = 110;
@@ -559,29 +651,37 @@ public sealed class MainForm : Form
         }
 
         _cardsPanel.Controls.Add(p);
+        // host the account card inside the same scrolling panel as video tiles
     }
 
     private void RenderAdminView()
     {
         Panel p = new Panel { Width = 920, Height = 520, BackColor = VrsCard, Margin = new Padding(8, 8, 8, 8) };
+        // wide card that holds add, remove, and demo lookup tools
+
         p.Region = new Region(GetRoundedPath(new Rectangle(0, 0, p.Width, p.Height), 14));
 
         Label lblHint = new Label { Text = "Upload / database templates", ForeColor = Color.Silver, Font = _cardTitleFont, Left = 28, Top = 24, Width = 500 };
+
         p.Controls.Add(lblHint);
 
         Label lblAdd = new Label { Text = "Add video", ForeColor = Color.White, Font = new Font("Segoe UI", 10F, FontStyle.Bold), Left = 28, Top = 72, Width = 200 };
+
         TextBox tId = CreateSmallTextBox(28, 98, "ID", 86);
         TextBox tTitle = CreateSmallTextBox(124, 98, "Title", 220);
         TextBox tGenre = CreateSmallTextBox(356, 98, "Genre", 140);
         TextBox tYear = CreateSmallTextBox(508, 98, "Year", 72);
+        // one row of fields feeding the Video constructor
 
         Button btnAdd = CreateAccentPillButton("Add", true, (_, _) =>
         {
             if (!TryReadId(tId.Text, out int id) || !TryReadYear(tYear.Text, out int year)) return;
+
             try
             {
                 bool added = _store!.AddVideo(new Video(id, tTitle.Text, tGenre.Text, year));
                 _lblStatus.Text = added ? "Status: Video added." : "Status: ID already exists.";
+
                 if (added)
                 {
                     tId.Text = "";
@@ -589,12 +689,15 @@ public sealed class MainForm : Form
                     tGenre.Text = "";
                     tYear.Text = "";
                 }
+                // clear inputs only when the id was accepted
             }
             catch (Exception ex)
             {
                 _lblStatus.Text = $"Status: {ex.Message}";
+                // Video model validation surfaces here for bad title, genre, or year
             }
         });
+
         btnAdd.Left = 596;
         btnAdd.Top = 96;
         btnAdd.Width = 88;
@@ -607,14 +710,18 @@ public sealed class MainForm : Form
         p.Controls.Add(btnAdd);
 
         Label lblRem = new Label { Text = "Remove video", ForeColor = Color.White, Font = new Font("Segoe UI", 10F, FontStyle.Bold), Left = 28, Top = 150, Width = 200 };
+
         TextBox tRemId = CreateSmallTextBox(28, 176, "Video ID", 120);
+
         Button btnRem = CreateMutedPillButton("Remove", (_, _) =>
         {
             if (!TryReadId(tRemId.Text, out int id)) return;
+
             bool removed = _store!.RemoveVideo(id);
             _lblStatus.Text = removed ? "Status: Removed." : "Status: Not found.";
             if (removed) tRemId.Text = "";
         });
+
         btnRem.Left = 156;
         btnRem.Top = 174;
         btnRem.Width = 96;
@@ -624,24 +731,31 @@ public sealed class MainForm : Form
         p.Controls.Add(btnRem);
 
         Label lblSearch = new Label { Text = "Find by ID (demo)", ForeColor = Color.White, Font = new Font("Segoe UI", 10F, FontStyle.Bold), Left = 28, Top = 232, Width = 200 };
+
         TextBox tSearchId = CreateSmallTextBox(28, 258, "Video ID", 120);
+
         Button btnSearchId = CreateMutedPillButton("Search", (_, _) =>
         {
             if (!TryReadId(tSearchId.Text, out int id)) return;
+
             if (_store!.TrySearchById(id, out Video? video) && video != null)
             {
                 _cardsPanel.Controls.Clear();
                 _cardsPanel.Controls.Add(p);
+
                 Panel foundCard = CreateVideoCard(video, showSaveToggle: false);
                 foundCard.Margin = new Padding(10, 10, 0, 0);
+
                 _cardsPanel.Controls.Add(foundCard);
                 _lblStatus.Text = "Status: Found.";
+                // rebuild flow: admin shell first, then one tile so the hit is obvious
             }
             else
             {
                 _lblStatus.Text = "Status: Not found.";
             }
         });
+
         btnSearchId.Left = 156;
         btnSearchId.Top = 256;
         btnSearchId.Width = 96;
@@ -651,15 +765,17 @@ public sealed class MainForm : Form
         p.Controls.Add(btnSearchId);
 
         Label hint = new Label { Text = "SQLite file updates as you edit. Rental data uses the custom in-memory structures synced to disk.", ForeColor = Color.Gray, Font = _smallLabelFont, Left = 28, Top = 380, Width = 820 };
+
         p.Controls.Add(hint);
 
         _cardsPanel.Controls.Add(p);
     }
 
-    // Clears the card panel then rebuilds whatever the current view needs. Keeping one method avoids copy/paste bugs.
     private void RenderCards(string? titleFilter = null)
     {
         _cardsPanel.Controls.Clear();
+        // drop previous tiles or placeholder labels before rebuilding
+
         if (_store == null)
         {
             return;
@@ -676,8 +792,10 @@ public sealed class MainForm : Form
             RenderAccountView();
             return;
         }
+        // admin and account short-circuit because they are not card grids
 
         Video[] videos;
+
         if (!string.IsNullOrWhiteSpace(titleFilter))
         {
             videos = _store.SearchByTitle(titleFilter);
@@ -687,6 +805,7 @@ public sealed class MainForm : Form
         {
             videos = _store.DisplayAllVideos();
         }
+        // either respect active search text or pull the full title-sorted catalogue
 
         if (_viewMode == ViewMode.Rented)
         {
@@ -719,11 +838,13 @@ public sealed class MainForm : Form
                 }
 
                 videos = kept.ToArray();
+                // keep only starred ids from the same baseline list search would have used
             }
 
             if (_currentUser == null)
             {
                 _lblStatus.Text = "Status: Saved list is local to this session — log in to rent.";
+                // stars live in a session hash set, not sqlite, until you wire persistence
             }
         }
 
@@ -737,13 +858,14 @@ public sealed class MainForm : Form
                 Font = new Font("Segoe UI Semibold", 11F, FontStyle.Regular, GraphicsUnit.Point),
                 Text = _viewMode == ViewMode.Saved ? "No saved titles yet. Use ★ on Browse." : "Nothing to show in this view."
             };
+
             _cardsPanel.Controls.Add(empty);
             return;
         }
 
         bool listRows = _viewMode == ViewMode.Rented;
-        // Parentheses matter: we only want the star button when (library OR saved) AND logged in, not library OR (saved AND login).
         bool showSave = (_viewMode == ViewMode.Library || _viewMode == ViewMode.Saved) && _currentUser != null;
+        // rentals use horizontal rows with a countdown chip; save star only when logged in on browse or saved
 
         for (int i = 0; i < videos.Length; i++)
         {
@@ -767,6 +889,8 @@ public sealed class MainForm : Form
             Margin = new Padding(4, 6, 4, 6),
             BackColor = VrsCard
         };
+        // full-width row that stretches with the flow panel client area
+
         row.Region = new Region(GetRoundedPath(new Rectangle(0, 0, row.Width, row.Height), 12));
 
         Button star = new()
@@ -782,8 +906,11 @@ public sealed class MainForm : Form
             Font = new Font("Segoe UI", 12F),
             Cursor = Cursors.Hand
         };
+
         star.FlatAppearance.BorderSize = 0;
+
         star.Region = new Region(GetRoundedPath(new Rectangle(0, 0, star.Width, star.Height), 10));
+        // decorative star matching the mock-up; not wired to favourites here
 
         Label lblTitle = new()
         {
@@ -795,23 +922,21 @@ public sealed class MainForm : Form
             ForeColor = Color.White,
             Font = _cardTitleFont
         };
+        // primary label line with metadata
 
-        // UI assumes a fixed loan length so the list matches the Figma "28 DAYS LEFT" style chips; tweak RentalPeriodDays if the brief changes.
         string daysText = "—";
+
         if (_store!.TryGetRentDate(userId, video.VideoId, out DateTime rentAt))
         {
             int used = (DateTime.UtcNow.Date - rentAt.Date).Days;
-            int left = RentalPeriodDays - used;
-            if (left < 0)
-            {
-                left = 0;
-            }
-
+            int left = Math.Max(0, RentalPeriodDays - used);
             daysText = left == 1 ? "1 DAY LEFT" : $"{left} DAYS LEFT";
+            // fake rental window using constant RentalPeriodDays from rent date in sqlite
         }
         else
         {
             daysText = $"{RentalPeriodDays} DAYS LEFT";
+            // if sqlite has no timestamp yet still show the window length chip
         }
 
         Label pill = new()
@@ -827,17 +952,20 @@ public sealed class MainForm : Form
             BackColor = VrsBurgundyLight,
             Font = new Font("Segoe UI Semibold", 8.5F, FontStyle.Bold)
         };
+
         pill.Region = new Region(GetRoundedPath(new Rectangle(0, 0, pill.Width, pill.Height), 10));
 
         row.Controls.Add(star);
         row.Controls.Add(lblTitle);
         row.Controls.Add(pill);
+
         row.SizeChanged += (_, _) =>
         {
             row.Region = new Region(GetRoundedPath(new Rectangle(0, 0, row.Width, row.Height), 12));
             lblTitle.Width = row.Width - 220;
             pill.Left = row.Width - 146;
         };
+        // when the flow panel grows, widen the title and pin the pill to the right edge
 
         return row;
     }
@@ -851,9 +979,12 @@ public sealed class MainForm : Form
             Margin = new Padding(10),
             BackColor = VrsCard
         };
+        // fixed tile width; extra height when the save star row is visible
+
         card.Region = new Region(GetRoundedPath(new Rectangle(0, 0, card.Width, card.Height), 12));
-        // Simple colour swap on hover — no Timer/Lerp, easier to debug when you are still getting used to events.
+
         AttachSimpleCardHover(card, VrsCard, VrsCardHover);
+        // brighten slightly on hover for affordance
 
         Label lblCode = new()
         {
@@ -884,6 +1015,7 @@ public sealed class MainForm : Form
             Font = _smallLabelFont,
             Text = $"{video.Genre} · {video.ReleaseYear}"
         };
+        // id, title, and meta lines stacked down the left margin
 
         bool isRentedByMe = false;
         if (video.IsRented && _currentUser != null && _store != null)
@@ -898,9 +1030,11 @@ public sealed class MainForm : Form
                 }
             }
         }
+        // distinguish global IsRented from "this user is the renter" for button labels
 
         string stateText = "Available";
         Color stateColor = Color.LightGreen;
+
         if (video.IsRented)
         {
             stateText = isRentedByMe ? "Rented by you" : "Rented";
@@ -916,8 +1050,10 @@ public sealed class MainForm : Form
             Font = new Font("Segoe UI Semibold", 9F, FontStyle.Regular, GraphicsUnit.Point),
             Text = stateText
         };
+        // colour cues: green available, red taken
 
         int actionTop = showSaveToggle ? 128 : 120;
+
         Button btnAction = new()
         {
             Left = 154,
@@ -931,13 +1067,18 @@ public sealed class MainForm : Form
             Cursor = Cursors.Hand,
             Text = video.IsRented ? (isRentedByMe ? "Return" : "Busy") : "Rent"
         };
+        // rent vs return vs disabled busy state on one control
+
         btnAction.FlatAppearance.BorderSize = 0;
+
         btnAction.Region = new Region(GetRoundedPath(new Rectangle(0, 0, btnAction.Width, btnAction.Height), 8));
+
         AttachQuickHover(btnAction, video.IsRented ? Color.FromArgb(56, 62, 78) : VrsBurgundy, video.IsRented ? Color.FromArgb(70, 76, 92) : VrsBurgundyLight);
 
         btnAction.Click += (_, _) =>
         {
             if (_store == null) return;
+
             if (_currentUser == null)
             {
                 _lblStatus.Text = "Status: Log in to rent or return.";
@@ -945,6 +1086,7 @@ public sealed class MainForm : Form
             }
 
             bool wasRented = video.IsRented;
+
             bool ok = wasRented
                 ? _store.ReturnVideo(video.VideoId, _currentUser.UserId)
                 : _store.RentVideo(video.VideoId, _currentUser.UserId);
@@ -956,7 +1098,9 @@ public sealed class MainForm : Form
             }
 
             _lblStatus.Text = wasRented ? "Status: Returned." : "Status: Rented.";
+
             RenderCards(_txtSearchTitle.Visible && !string.IsNullOrWhiteSpace(_txtSearchTitle.Text) ? _txtSearchTitle.Text : null);
+            // refresh tiles so flags and chips match the store without losing an active search string
         };
 
         card.Controls.Add(lblCode);
@@ -968,6 +1112,7 @@ public sealed class MainForm : Form
         if (showSaveToggle)
         {
             bool saved = _savedVideoIds.Contains(video.VideoId);
+
             Button btnStar = new()
             {
                 Text = saved ? "★" : "☆",
@@ -981,8 +1126,11 @@ public sealed class MainForm : Form
                 Font = new Font("Segoe UI", 11F),
                 Cursor = Cursors.Hand
             };
+
             btnStar.FlatAppearance.BorderSize = 0;
+
             btnStar.Region = new Region(GetRoundedPath(new Rectangle(0, 0, btnStar.Width, btnStar.Height), 8));
+
             btnStar.Click += (_, _) =>
             {
                 if (_savedVideoIds.Contains(video.VideoId))
@@ -995,9 +1143,13 @@ public sealed class MainForm : Form
                 }
 
                 RenderCards(string.IsNullOrWhiteSpace(_txtSearchTitle.Text) ? null : _txtSearchTitle.Text);
+                // toggle session set then redraw so the star glyph updates immediately
             };
+
             card.Controls.Add(btnStar);
+
             btnAction.Left = 158;
+            // nudge the rent button right so it clears the wider star column
         }
 
         return card;
@@ -1006,11 +1158,13 @@ public sealed class MainForm : Form
     private bool EnsureStoreReady()
     {
         if (_store != null) return true;
+
         _lblStatus.Text = "Status: Database not ready.";
+        // user clicked search before init finished or init threw
+
         return false;
     }
 
-    // Boots SQLite + our in-memory structures. Constructor finishes with data ready so button clicks never hit a null store silently.
     private void InitializeStoreWithPreloadedData()
     {
         try
@@ -1018,6 +1172,7 @@ public sealed class MainForm : Form
             SqliteVideoRepository repository = new(_databasePath);
             SqliteRentalRepository rentalRepo = new(_databasePath);
             SqliteUserRepository userRepo = new(_databasePath);
+            // three repos share one sqlite file but each owns its own table access helpers
 
             repository.EnsureDatabaseAndSchema();
 
@@ -1026,8 +1181,9 @@ public sealed class MainForm : Form
 
             _userStore.LoadFromRepository();
             _store.LoadFromRepository();
+            // hydrate BST, AVL, hash map, and rental map from disk
 
-            // RegisterUser fails if the row already exists, so we can safely call this on every startup for the demo admin.
+            // Ensures the demo admin ("123" / "123") exists so the Upload tab can be unlocked without manual SQL.
             _userStore.RegisterUser("123", "123");
 
             if (_store.Count == 0)
@@ -1036,11 +1192,13 @@ public sealed class MainForm : Form
             }
 
             _lblStatus.Text = $"Status: Ready — {_store.Count} videos.";
+
             SetView(ViewMode.Library, "Browse", "RENT");
         }
         catch (Exception ex)
         {
             _lblStatus.Text = $"Status: Init failed — {ex.Message}";
+            // surface driver or schema errors in the status strip instead of crashing silently
         }
     }
 
@@ -1051,6 +1209,7 @@ public sealed class MainForm : Form
             _lblStatus.Text = "Status: ID must be a positive integer.";
             return false;
         }
+
         return true;
     }
 
@@ -1061,6 +1220,7 @@ public sealed class MainForm : Form
             _lblStatus.Text = "Status: Year must be an integer.";
             return false;
         }
+
         return true;
     }
 
@@ -1071,17 +1231,20 @@ public sealed class MainForm : Form
         AddIfMissing(new Video(1003, "Inception", "Sci-Fi", 2010));
         AddIfMissing(new Video(1004, "Pulp Fiction", "Crime", 1994));
         AddIfMissing(new Video(1005, "Our Planet", "Documentary", 2019));
+        // gives a non-empty catalogue on first launch; duplicates are ignored by id
     }
 
     private void AddIfMissing(Video video)
     {
         _store!.AddVideo(video);
+        // AddVideo rejects duplicate primary keys so calling blindly is safe
     }
 
     private static void AttachQuickHover(Button button, Color normal, Color hover)
     {
         button.MouseEnter += (_, _) => button.BackColor = hover;
         button.MouseLeave += (_, _) => button.BackColor = normal;
+        // simple hover feedback without custom painting
     }
 
     private static void AttachSimpleCardHover(Panel card, Color normal, Color hover)
@@ -1090,7 +1253,6 @@ public sealed class MainForm : Form
         card.MouseLeave += (_, _) => card.BackColor = normal;
     }
 
-    // Shared helper so every rounded button uses the same corner math instead of copy/pasting four arc calls.
     private static GraphicsPath GetRoundedPath(Rectangle rect, int radius)
     {
         GraphicsPath path = new();
@@ -1100,6 +1262,7 @@ public sealed class MainForm : Form
         path.AddArc(rect.Right - diameter, rect.Bottom - diameter, diameter, diameter, 0, 90);
         path.AddArc(rect.X, rect.Bottom - diameter, diameter, diameter, 90, 90);
         path.CloseFigure();
+        // four quarter-circle arcs close into a rounded rectangle usable as Region or fill
         return path;
     }
 }

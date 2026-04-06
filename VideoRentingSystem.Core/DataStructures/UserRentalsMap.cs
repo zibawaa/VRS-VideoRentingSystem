@@ -1,4 +1,3 @@
-// Hash map: UserId -> linked list of VideoIds they currently have checked out. Separate chaining matches the style of IdHashIndex.
 namespace VideoRentingSystem.Core.DataStructures;
 
 public sealed class UserRentalsMap
@@ -47,10 +46,8 @@ public sealed class UserRentalsMap
     public void AddRental(int userId, int videoId)
     {
         MapEntry? entry = FindUserEntry(userId);
-
         if (entry != null)
         {
-            // Add video to existing user's rentals
             if (!ContainsVideo(entry.RentedVideosHead, videoId))
             {
                 entry.RentedVideosHead = new VideoNode(videoId, entry.RentedVideosHead);
@@ -58,7 +55,6 @@ public sealed class UserRentalsMap
         }
         else
         {
-            // Add new user entry with this rental
             if ((_userCount + 1) > _buckets.Length * _maxLoadFactor)
             {
                 Resize(NextPrime(_buckets.Length * 2));
@@ -81,7 +77,6 @@ public sealed class UserRentalsMap
 
         VideoNode? current = entry.RentedVideosHead;
         VideoNode? previous = null;
-
         while (current != null)
         {
             if (current.VideoId == videoId)
@@ -94,6 +89,7 @@ public sealed class UserRentalsMap
                 {
                     previous.Next = current.Next;
                 }
+
                 return true;
             }
 
@@ -112,23 +108,18 @@ public sealed class UserRentalsMap
             return [];
         }
 
-        // Count videos first
+        // Singly linked list: count first so we allocate one tight array (no List<T> churn).
         int count = 0;
-        VideoNode? currentCount = entry.RentedVideosHead;
-        while (currentCount != null)
+        for (VideoNode? c = entry.RentedVideosHead; c != null; c = c.Next)
         {
             count++;
-            currentCount = currentCount.Next;
         }
 
-        // Extract videos
         int[] videos = new int[count];
         int index = 0;
-        VideoNode? currentFill = entry.RentedVideosHead;
-        while (currentFill != null)
+        for (VideoNode? c = entry.RentedVideosHead; c != null; c = c.Next)
         {
-            videos[index++] = currentFill.VideoId;
-            currentFill = currentFill.Next;
+            videos[index++] = c.VideoId;
         }
 
         return videos;
@@ -138,7 +129,6 @@ public sealed class UserRentalsMap
     {
         int bucket = GetBucket(userId, _buckets.Length);
         MapEntry? current = _buckets[bucket];
-
         while (current != null)
         {
             if (current.UserId == userId)
@@ -161,15 +151,16 @@ public sealed class UserRentalsMap
             {
                 return true;
             }
+
             current = current.Next;
         }
+
         return false;
     }
 
     private void Resize(int newCapacity)
     {
         MapEntry?[] newBuckets = new MapEntry?[newCapacity];
-
         for (int i = 0; i < _buckets.Length; i++)
         {
             MapEntry? current = _buckets[i];
@@ -195,7 +186,6 @@ public sealed class UserRentalsMap
     private static int NextPrime(int start)
     {
         int candidate = start % 2 == 0 ? start + 1 : start;
-
         while (!IsPrime(candidate))
         {
             candidate += 2;
@@ -210,10 +200,12 @@ public sealed class UserRentalsMap
         {
             return false;
         }
+
         if (value == 2)
         {
             return true;
         }
+
         if (value % 2 == 0)
         {
             return false;

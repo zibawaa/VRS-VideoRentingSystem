@@ -1,5 +1,3 @@
-// Plain data holder for one tape/stream entry. Properties use private set so only methods like UpdateDetails can mutate state,
-// which makes it obvious where business rules (validation) live when we read the file later.
 namespace VideoRentingSystem.Core.Models;
 
 public sealed class Video
@@ -26,10 +24,12 @@ public sealed class Video
         {
             throw new ArgumentException("Genre is required.", nameof(genre));
         }
+        // reject bad id and empty strings before validating numeric ranges
 
         if (releaseYear < 1888 || releaseYear > DateTime.UtcNow.Year + 1)
         {
             throw new ArgumentOutOfRangeException(nameof(releaseYear), "Release year is outside valid movie range.");
+            // earliest film era through next year to catch typos without blocking imminent releases
         }
 
         VideoId = videoId;
@@ -37,6 +37,7 @@ public sealed class Video
         Genre = genre.Trim();
         ReleaseYear = releaseYear;
         IsRented = isRented;
+        // assign after validation so objects are always normalised
     }
 
     public void SetRented(bool rented)
@@ -64,5 +65,6 @@ public sealed class Video
         Title = title.Trim();
         Genre = genre.Trim();
         ReleaseYear = releaseYear;
+        // same rules as ctor but id and rental flag stay fixed
     }
 }

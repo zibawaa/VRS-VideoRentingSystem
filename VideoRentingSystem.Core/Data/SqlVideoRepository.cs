@@ -16,7 +16,6 @@ public sealed class SqlVideoRepository : IVideoRepository
         }
 
         _connectionString = connectionString;
-
         SqlConnectionStringBuilder builder = new(connectionString);
         if (string.IsNullOrWhiteSpace(builder.InitialCatalog))
         {
@@ -28,6 +27,7 @@ public sealed class SqlVideoRepository : IVideoRepository
 
     public void EnsureDatabaseAndSchema()
     {
+        // Interpolated catalog name is only safe because we whitelist characters below.
         if (!IsSqlIdentifierSafe(_databaseName))
         {
             throw new InvalidOperationException("Database name contains unsupported characters.");
@@ -62,7 +62,6 @@ public sealed class SqlVideoRepository : IVideoRepository
 
         using SqlConnection connection = new(_connectionString);
         connection.Open();
-
         using SqlCommand command = new(sql, connection);
         command.ExecuteNonQuery();
     }
@@ -129,7 +128,6 @@ public sealed class SqlVideoRepository : IVideoRepository
 
         using SqlConnection connection = new(_connectionString);
         connection.Open();
-
         using SqlCommand command = new(sql, connection);
         command.Parameters.AddWithValue("@VideoId", video.VideoId);
         command.Parameters.AddWithValue("@Title", video.Title);
@@ -142,10 +140,8 @@ public sealed class SqlVideoRepository : IVideoRepository
     public void DeleteVideo(int videoId)
     {
         const string sql = "DELETE FROM dbo.Videos WHERE VideoId = @VideoId;";
-
         using SqlConnection connection = new(_connectionString);
         connection.Open();
-
         using SqlCommand command = new(sql, connection);
         command.Parameters.AddWithValue("@VideoId", videoId);
         command.ExecuteNonQuery();

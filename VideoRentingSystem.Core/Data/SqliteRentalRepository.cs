@@ -1,4 +1,3 @@
-// Thin SQLite adapter — only knows SQL strings plus basic parameter binding. Keeps connection string logic in one place.
 using Microsoft.Data.Sqlite;
 using VideoRentingSystem.Core.Models;
 
@@ -40,7 +39,6 @@ public sealed class SqliteRentalRepository : IRentalRepository
         int index = 0;
 
         const string selectSql = "SELECT UserId, VideoId, RentDate FROM Rentals;";
-
         using SqliteCommand selectCommand = new(selectSql, connection);
         using SqliteDataReader reader = selectCommand.ExecuteReader();
         while (reader.Read())
@@ -56,6 +54,7 @@ public sealed class SqliteRentalRepository : IRentalRepository
 
     public void InsertRental(Rental rental)
     {
+        // OR IGNORE: composite PK (UserId,VideoId) — idempotent if UI double-submits.
         const string sql = """
                            INSERT OR IGNORE INTO Rentals (UserId, VideoId, RentDate)
                            VALUES (@UserId, @VideoId, @RentDate);
@@ -63,12 +62,10 @@ public sealed class SqliteRentalRepository : IRentalRepository
 
         using SqliteConnection connection = new(_connectionString);
         connection.Open();
-
         using SqliteCommand command = new(sql, connection);
         command.Parameters.AddWithValue("@UserId", rental.UserId);
         command.Parameters.AddWithValue("@VideoId", rental.VideoId);
         command.Parameters.AddWithValue("@RentDate", rental.RentDate.ToString("o"));
-
         command.ExecuteNonQuery();
     }
 
@@ -78,7 +75,6 @@ public sealed class SqliteRentalRepository : IRentalRepository
 
         using SqliteConnection connection = new(_connectionString);
         connection.Open();
-
         using SqliteCommand command = new(sql, connection);
         command.Parameters.AddWithValue("@UserId", userId);
         command.Parameters.AddWithValue("@VideoId", videoId);
@@ -95,7 +91,6 @@ public sealed class SqliteRentalRepository : IRentalRepository
 
         using SqliteConnection connection = new(_connectionString);
         connection.Open();
-
         using SqliteCommand command = new(sql, connection);
         command.Parameters.AddWithValue("@UserId", userId);
         command.Parameters.AddWithValue("@VideoId", videoId);

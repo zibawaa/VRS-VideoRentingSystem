@@ -1,5 +1,3 @@
-// One active checkout row: who, what, and when it started. Return handling deletes the row today instead of keeping history,
-// which keeps the coursework schema small (we can extend later if the brief asks for full logs).
 namespace VideoRentingSystem.Core.Models;
 
 public sealed class Rental
@@ -23,5 +21,6 @@ public sealed class Rental
         UserId = userId;
         VideoId = videoId;
         RentDate = rentDate;
+        // composite key (userId,videoId) lives in sqlite; model is immutable once created
     }
 }

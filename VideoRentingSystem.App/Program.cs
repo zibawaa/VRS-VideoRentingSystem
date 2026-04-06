@@ -1,4 +1,3 @@
-// Entry point for the Windows desktop app. WinForms still expects Main() on a thread marked STAThread for COM/dialog interop.
 namespace VideoRentingSystem.App;
 
 internal static class Program
@@ -6,8 +5,10 @@ internal static class Program
     [STAThread]
     private static void Main()
     {
-        // Pulls in modern WinForms defaults (high DPI, etc.) without us manually setting every flag.
         ApplicationConfiguration.Initialize();
+        // WinForms bootstrap: visual styles, default font behaviour, etc. for this TFM
+
         Application.Run(new MainForm());
+        // blocks in a modal loop until MainForm closes, pumping window messages
     }
 }

@@ -1,4 +1,3 @@
-// Thin SQLite access for the Users table — mirrors SqliteVideoRepository so the pattern stays familiar when we revise code.
 using Microsoft.Data.Sqlite;
 using VideoRentingSystem.Core.Models;
 
@@ -40,7 +39,6 @@ public sealed class SqliteUserRepository : IUserRepository
         int index = 0;
 
         const string selectSql = "SELECT UserId, Username, PasswordHash FROM Users ORDER BY UserId ASC;";
-
         using SqliteCommand selectCommand = new(selectSql, connection);
         using SqliteDataReader reader = selectCommand.ExecuteReader();
         while (reader.Read())
@@ -63,12 +61,10 @@ public sealed class SqliteUserRepository : IUserRepository
 
         using SqliteConnection connection = new(_connectionString);
         connection.Open();
-
         using SqliteCommand command = new(sql, connection);
         command.Parameters.AddWithValue("@UserId", user.UserId);
         command.Parameters.AddWithValue("@Username", user.Username);
         command.Parameters.AddWithValue("@PasswordHash", user.PasswordHash);
-        
         command.ExecuteNonQuery();
     }
 }

@@ -1,5 +1,3 @@
-// Creates/opens the SQLite file and runs the CREATE TABLE statements once. VideoStore still owns the "business logic" layer;
-// this class is basically "read rows, write rows" so we can swap storage later if needed.
 using Microsoft.Data.Sqlite;
 using VideoRentingSystem.Core.Models;
 
@@ -19,6 +17,7 @@ public sealed class SqliteVideoRepository : IVideoRepository
 
         _databaseFilePath = databaseFilePath.Trim();
         _connectionString = $"Data Source={_databaseFilePath}";
+        // classic sqlite connection string pointing at a single file on disk
     }
 
     public void EnsureDatabaseAndSchema()
@@ -28,10 +27,12 @@ public sealed class SqliteVideoRepository : IVideoRepository
         {
             Directory.CreateDirectory(directory);
         }
+        // create parent folders first so Sqlite can create the db file
 
         using SqliteConnection connection = new(_connectionString);
         connection.Open();
 
+        // One batch: Videos for the app, Users/Rentals for auth + who- rented-what persistence.
         const string createTableSql = """
                                       CREATE TABLE IF NOT EXISTS Videos
                                       (
@@ -62,6 +63,7 @@ public sealed class SqliteVideoRepository : IVideoRepository
 
         using SqliteCommand command = new(createTableSql, connection);
         command.ExecuteNonQuery();
+        // IF NOT EXISTS keeps this safe to call on every app start
     }
 
     public Video[] LoadAllVideos()
@@ -76,6 +78,7 @@ public sealed class SqliteVideoRepository : IVideoRepository
             object? scalar = countCommand.ExecuteScalar();
             count = scalar == null ? 0 : Convert.ToInt32(scalar);
         }
+        // size the managed array once so we avoid List reallocations on big catalogues
 
         if (count == 0)
         {
@@ -101,6 +104,7 @@ public sealed class SqliteVideoRepository : IVideoRepository
                 reader.GetString(2),
                 reader.GetInt32(3),
                 reader.GetInt64(4) == 1);
+            // sqlite stores bool as 0/1 integer flags in this schema
         }
 
         return videos;
@@ -120,7 +124,6 @@ public sealed class SqliteVideoRepository : IVideoRepository
 
         using SqliteConnection connection = new(_connectionString);
         connection.Open();
-
         using SqliteCommand command = new(sql, connection);
         command.Parameters.AddWithValue("@VideoId", video.VideoId);
         command.Parameters.AddWithValue("@Title", video.Title);
@@ -128,17 +131,17 @@ public sealed class SqliteVideoRepository : IVideoRepository
         command.Parameters.AddWithValue("@ReleaseYear", video.ReleaseYear);
         command.Parameters.AddWithValue("@IsRented", video.IsRented ? 1 : 0);
         command.ExecuteNonQuery();
+        // upsert keeps one row per VideoId and updates metadata after rentals
     }
 
     public void DeleteVideo(int videoId)
     {
         const string sql = "DELETE FROM Videos WHERE VideoId = @VideoId;";
-
         using SqliteConnection connection = new(_connectionString);
         connection.Open();
-
         using SqliteCommand command = new(sql, connection);
         command.Parameters.AddWithValue("@VideoId", videoId);
         command.ExecuteNonQuery();
+        // caller already removed from in-memory structures; this drops the disk row
     }
 }

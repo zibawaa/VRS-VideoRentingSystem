@@ -1,5 +1,3 @@
-// AVL tree keyed by the normalised title string. Coursework wants a custom structure for title search + sorted catalogue walks,
-// so we did not use SortedDictionary here — the report has the Big-O justification our marker asked for.
 using VideoRentingSystem.Core.Models;
 
 namespace VideoRentingSystem.Core.DataStructures;
@@ -134,7 +132,6 @@ public sealed class AvlTitleIndex
         }
 
         FillInOrder(node.Left, output, ref index);
-
         VideoChainNode? current = node.Videos;
         while (current != null)
         {
@@ -164,6 +161,7 @@ public sealed class AvlTitleIndex
         }
         else
         {
+            // Same normalised title, different VideoId: chain at this node instead of splitting the tree.
             node.Videos = new VideoChainNode(video, node.Videos);
             node.VideoCount++;
             inserted = true;
@@ -217,7 +215,6 @@ public sealed class AvlTitleIndex
             node.Key = successor.Key;
             node.Videos = successor.Videos;
             node.VideoCount = successor.VideoCount;
-
             bool unused = false;
             node.Right = RemoveNodeByKey(node.Right, successor.Key, ref unused);
         }
@@ -244,7 +241,6 @@ public sealed class AvlTitleIndex
         else
         {
             removed = true;
-
             if (node.Left == null)
             {
                 return node.Right;
@@ -259,7 +255,6 @@ public sealed class AvlTitleIndex
             node.Key = successor.Key;
             node.Videos = successor.Videos;
             node.VideoCount = successor.VideoCount;
-
             bool childRemoved = false;
             node.Right = RemoveNodeByKey(node.Right, successor.Key, ref childRemoved);
         }
@@ -338,13 +333,10 @@ public sealed class AvlTitleIndex
     {
         Node x = y.Left!;
         Node? transfer = x.Right;
-
         x.Right = y;
         y.Left = transfer;
-
         UpdateHeight(y);
         UpdateHeight(x);
-
         return x;
     }
 
@@ -352,13 +344,10 @@ public sealed class AvlTitleIndex
     {
         Node y = x.Right!;
         Node? transfer = y.Left;
-
         y.Left = x;
         x.Right = transfer;
-
         UpdateHeight(x);
         UpdateHeight(y);
-
         return y;
     }
 
