@@ -185,13 +185,24 @@ public sealed class VideoStore
         return _titleIndex.SearchByTitle(title);
     }
 
+    // searches the keyword index for exact multi-word matches first
     public Video[] SearchByKeyword(string keyword)
     {
         int[] ids = _keywordIndex.SearchVideoIds(keyword);
-        if (ids.Length == 0)
-        {
-            return [];
-        }
+        return ResolveIds(ids);
+    }
+
+    // falls back to Levenshtein-based fuzzy matching when exact search returns nothing
+    public Video[] FuzzySearchByKeyword(string keyword, int maxDistance = 2)
+    {
+        int[] ids = _keywordIndex.FuzzySearchVideoIds(keyword, maxDistance);
+        return ResolveIds(ids);
+    }
+
+    // converts an array of video IDs into resolved Video objects via the hash index
+    private Video[] ResolveIds(int[] ids)
+    {
+        if (ids.Length == 0) return [];
 
         Video[] found = new Video[ids.Length];
         int index = 0;
@@ -203,17 +214,10 @@ public sealed class VideoStore
             }
         }
 
-        if (index == found.Length)
-        {
-            return found;
-        }
+        if (index == found.Length) return found;
 
         Video[] compact = new Video[index];
-        for (int i = 0; i < index; i++)
-        {
-            compact[i] = found[i];
-        }
-
+        for (int i = 0; i < index; i++) compact[i] = found[i];
         return compact;
     }
 
@@ -299,10 +303,20 @@ public sealed class VideoStore
             : SearchByKeyword(keyword);
         // keyword index narrows candidates first, then exact filters trim the set
 
-        if (baseline.Length == 0)
-        {
-            return [];
-        }
+        return ApplyFilters(baseline, genre, maxPrice);
+    }
+
+    // same as FilterCatalog but uses fuzzy (Levenshtein) matching on the keyword
+    public Video[] FuzzyFilterCatalog(string keyword, string? genre, decimal? maxPrice)
+    {
+        Video[] baseline = FuzzySearchByKeyword(keyword);
+        return ApplyFilters(baseline, genre, maxPrice);
+    }
+
+    // applies genre and price filters to a baseline set of videos
+    private static Video[] ApplyFilters(Video[] baseline, string? genre, decimal? maxPrice)
+    {
+        if (baseline.Length == 0) return [];
 
         string? normalizedGenre = string.IsNullOrWhiteSpace(genre) ? null : genre.Trim();
         Video[] filtered = new Video[baseline.Length];
@@ -311,30 +325,14 @@ public sealed class VideoStore
         for (int i = 0; i < baseline.Length; i++)
         {
             Video v = baseline[i];
-            if (!v.IsPublished)
-            {
-                continue;
-            }
-
-            if (normalizedGenre != null && !string.Equals(v.Genre, normalizedGenre, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            if (maxPrice.HasValue && v.RentalPrice > maxPrice.Value)
-            {
-                continue;
-            }
-
+            if (!v.IsPublished) continue;
+            if (normalizedGenre != null && !string.Equals(v.Genre, normalizedGenre, StringComparison.OrdinalIgnoreCase)) continue;
+            if (maxPrice.HasValue && v.RentalPrice > maxPrice.Value) continue;
             filtered[index++] = v;
         }
 
         Video[] compact = new Video[index];
-        for (int i = 0; i < index; i++)
-        {
-            compact[i] = filtered[i];
-        }
-
+        for (int i = 0; i < index; i++) compact[i] = filtered[i];
         return compact;
     }
 

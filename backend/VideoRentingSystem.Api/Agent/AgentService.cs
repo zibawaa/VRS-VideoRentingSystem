@@ -84,20 +84,21 @@ public sealed class AgentService
             return (FindTool("help"), Array.Empty<string>());
         }
 
+        // return intent checked BEFORE rent so "unrent" doesn't match "rent "
+        if (ContainsAny(message, "unrent", "return ", "give back", "send back"))
+        {
+            string title = ExtractAfter(message, "unrent ");
+            if (string.IsNullOrEmpty(title)) title = ExtractAfter(message, "return ");
+            if (string.IsNullOrEmpty(title)) title = ExtractAfter(message, "give back ");
+            if (string.IsNullOrEmpty(title)) title = ExtractAfter(message, "send back ");
+            return (FindTool("return"), new[] { title });
+        }
+
         // rent intent — "rent <title>"
         if (ContainsAny(message, "rent ", "i want to rent", "i'd like to rent", "can i rent"))
         {
             string title = ExtractAfter(message, "rent ");
             return (FindTool("rent"), new[] { title });
-        }
-
-        // return intent — "return <title>"
-        if (ContainsAny(message, "return ", "give back", "send back"))
-        {
-            string title = ExtractAfter(message, "return ");
-            if (string.IsNullOrEmpty(title)) title = ExtractAfter(message, "give back ");
-            if (string.IsNullOrEmpty(title)) title = ExtractAfter(message, "send back ");
-            return (FindTool("return"), new[] { title });
         }
 
         // my rentals intent
@@ -188,6 +189,15 @@ public sealed class AgentService
                     lock (ctx.Runtime.SyncRoot)
                     {
                         results = ctx.Runtime.VideoStore.FilterCatalog(keyword, genre, maxPrice);
+                    }
+
+                    // if exact search missed, try fuzzy matching on the keyword
+                    if (results.Length == 0 && keyword != null)
+                    {
+                        lock (ctx.Runtime.SyncRoot)
+                        {
+                            results = ctx.Runtime.VideoStore.FuzzyFilterCatalog(keyword, genre, maxPrice);
+                        }
                     }
 
                     if (results.Length == 0)
@@ -301,7 +311,7 @@ public sealed class AgentService
                         return "Which title would you like to rent? Say \"rent <title name>\".";
                     }
 
-                    // search for the title in the catalog
+                    // try exact keyword match first, then fall back to fuzzy matching
                     Video[] matches;
                     lock (ctx.Runtime.SyncRoot)
                     {
@@ -310,11 +320,23 @@ public sealed class AgentService
 
                     if (matches.Length == 0)
                     {
+                        lock (ctx.Runtime.SyncRoot)
+                        {
+                            matches = ctx.Runtime.VideoStore.FuzzyFilterCatalog(titleQuery, null, null);
+                        }
+                    }
+
+                    if (matches.Length == 0)
+                    {
                         return $"I couldn't find a title matching \"{titleQuery}\". Check the spelling and try again.";
                     }
 
-                    // pick the first available match
-                    Video? target = Array.Find(matches, v => !v.IsRented);
+                    // pick the best match — prefer titles that contain the query as a substring
+                    Video? target = Array.Find(matches, v =>
+                        !v.IsRented && v.Title.Contains(titleQuery, StringComparison.OrdinalIgnoreCase));
+                    // fall back to the first available result from the ranked list
+                    target ??= Array.Find(matches, v => !v.IsRented);
+
                     if (target == null)
                     {
                         return $"All matches for \"{titleQuery}\" are currently rented out.";
@@ -360,8 +382,15 @@ public sealed class AgentService
                         rented = ctx.Runtime.VideoStore.GetUserRentedVideos(ctx.Session.UserId);
                     }
 
+                    // try exact substring match on the user's rented titles
                     Video? target = Array.Find(rented, v =>
                         v.Title.Contains(titleQuery, StringComparison.OrdinalIgnoreCase));
+
+                    // if exact match fails, use fuzzy matching against each rented title
+                    if (target == null)
+                    {
+                        target = FuzzyFindBestTitle(rented, titleQuery);
+                    }
 
                     if (target == null)
                     {
@@ -591,6 +620,81 @@ public sealed class AgentService
 
         // default to a reasonable "cheap" threshold if no explicit number
         return "3.00";
+    }
+
+    // picks the best-matching video from a list by comparing Levenshtein distance
+    // between the query and each title, tolerating misspellings and word-order variance
+    private static Video? FuzzyFindBestTitle(Video[] candidates, string query)
+    {
+        if (candidates.Length == 0 || string.IsNullOrWhiteSpace(query)) return null;
+
+        string normQuery = query.Trim().ToUpperInvariant();
+        Video? best = null;
+        int bestDistance = int.MaxValue;
+
+        for (int i = 0; i < candidates.Length; i++)
+        {
+            string normTitle = candidates[i].Title.ToUpperInvariant();
+            int dist = LevenshteinDistance(normQuery, normTitle);
+
+            // also check per-word overlap for multi-word queries
+            int wordScore = CountMatchingWords(normQuery, normTitle);
+
+            // weight: lower distance and higher word overlap both help
+            int effective = dist - (wordScore * 3);
+            if (effective < bestDistance)
+            {
+                bestDistance = effective;
+                best = candidates[i];
+            }
+        }
+
+        // reject if the best match is still too far from the query
+        int maxAcceptable = Math.Max(query.Length / 2, 5);
+        return bestDistance <= maxAcceptable ? best : null;
+    }
+
+    // counts how many words from the query appear (as substrings) in the target
+    private static int CountMatchingWords(string query, string target)
+    {
+        string[] words = query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        int matches = 0;
+        for (int i = 0; i < words.Length; i++)
+        {
+            if (words[i].Length < 2) continue;
+            if (target.Contains(words[i], StringComparison.OrdinalIgnoreCase)) matches++;
+        }
+        return matches;
+    }
+
+    /// <summary>
+    /// Classic Levenshtein edit-distance calculation using a two-row DP approach.
+    /// Measures minimum single-character edits to transform one string into another.
+    /// </summary>
+    private static int LevenshteinDistance(string a, string b)
+    {
+        if (a.Length == 0) return b.Length;
+        if (b.Length == 0) return a.Length;
+
+        int[] prev = new int[b.Length + 1];
+        int[] curr = new int[b.Length + 1];
+
+        for (int j = 0; j <= b.Length; j++) prev[j] = j;
+
+        for (int i = 1; i <= a.Length; i++)
+        {
+            curr[0] = i;
+            for (int j = 1; j <= b.Length; j++)
+            {
+                int cost = a[i - 1] == b[j - 1] ? 0 : 1;
+                int insert = curr[j - 1] + 1;
+                int delete = prev[j] + 1;
+                int replace = prev[j - 1] + cost;
+                curr[j] = Math.Min(insert, Math.Min(delete, replace));
+            }
+            (prev, curr) = (curr, prev);
+        }
+        return prev[b.Length];
     }
 
     // builds the default help / greeting response listing available arms
