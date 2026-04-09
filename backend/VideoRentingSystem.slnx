@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="VideoRentingSystem.Api/VideoRentingSystem.Api.csproj" />
+  <Project Path="VideoRentingSystem.App/VideoRentingSystem.App.csproj" />
+  <Project Path="VideoRentingSystem.Core/VideoRentingSystem.Core.csproj" />
+  <Project Path="VideoRentingSystem.Tests/VideoRentingSystem.Tests.csproj" />
+</Solution>

@@ -1,0 +1,79 @@
+/* global resets, font import, and design token definitions */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg-base: #05070e;
+  --bg-surface: #0b1020;
+  --bg-card: #0f1629;
+  --bg-card-solid: #111827;
+  --bg-card-hover: #162040;
+  --bg-input: #0d1526;
+  --bg-glass: #0a0f1e;
+  --border: rgba(30, 41, 59, 0.6);
+  --border-light: rgba(51, 65, 85, 0.5);
+  --border-focus: rgba(225, 29, 72, 0.5);
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-dim: #475569;
+  --accent: #e11d48;
+  --accent-hover: #fb2c5a;
+  --accent-soft: rgba(225, 29, 72, 0.12);
+  --accent-glow: rgba(225, 29, 72, 0.2);
+  --green: #34d399;
+  --green-soft: rgba(52, 211, 153, 0.1);
+  --amber: #fbbf24;
+  --amber-soft: rgba(251, 191, 36, 0.1);
+  --blue: #60a5fa;
+  --blue-soft: rgba(96, 165, 250, 0.1);
+  --purple: #c084fc;
+  --purple-soft: rgba(192, 132, 252, 0.1);
+  --orange: #fb923c;
+  --orange-soft: rgba(251, 146, 60, 0.1);
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.25);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
+  --shadow-xl: 0 16px 56px rgba(0,0,0,0.5);
+  --blur: 16px;
+  --transition-fast: 0.15s ease;
+  --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 0%, rgba(225, 29, 72, 0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 40% at 80% 100%, rgba(96, 165, 250, 0.04) 0%, transparent 70%),
+    var(--bg-base);
+  color: var(--text-primary);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* custom scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
