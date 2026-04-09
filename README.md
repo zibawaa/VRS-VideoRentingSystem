@@ -116,6 +116,3 @@ dotnet test backend/VideoRentingSystem.Tests
 - **Auth**: Lightweight in-memory bearer tokens with 8-hour expiry
 - **CORS**: Configured for `localhost:5173` and `127.0.0.1:5173` during development
 =======
-# VRS-VideoRentingSystem
-A Video Renting System for first time artists.
->>>>>>> 74c3a954bba34f429a97122922bd80d45a7d24fb
