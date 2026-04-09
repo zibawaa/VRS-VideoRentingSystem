@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Video Renting System (CST2550)
 
 An indie-first pay-per-title video rental marketplace where customers rent individual titles and small studios can publish their own catalogs.
@@ -114,3 +115,7 @@ dotnet test backend/VideoRentingSystem.Tests
 - **Custom data structures**: AVL tree (title index), hash table (ID lookup), BST (username index), hash maps (keyword search, publisher catalog, user rentals)
 - **Auth**: Lightweight in-memory bearer tokens with 8-hour expiry
 - **CORS**: Configured for `localhost:5173` and `127.0.0.1:5173` during development
+=======
+# VRS-VideoRentingSystem
+A Video Renting System for first time artists.
+>>>>>>> 74c3a954bba34f429a97122922bd80d45a7d24fb

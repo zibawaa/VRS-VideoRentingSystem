@@ -47,11 +47,13 @@ const ADMIN_KEY = 'vrs-admin-auth';
 
 /* ─── fetch helper ─── */
 
+// generic fetch wrapper that attaches the admin bearer token and parses JSON
 async function adminApi<T>(path: string, opts: RequestInit = {}, token?: string): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(opts.headers as Record<string, string> | undefined),
   };
+  // attach bearer token when the caller has an active admin session
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const res = await fetch(`${API}${path}`, { ...opts, headers });
@@ -59,6 +61,7 @@ async function adminApi<T>(path: string, opts: RequestInit = {}, token?: string)
     const body = await res.text();
     throw new Error(body || `HTTP ${res.status}`);
   }
+  // 204 No Content has no body to parse
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
@@ -68,6 +71,7 @@ async function adminApi<T>(path: string, opts: RequestInit = {}, token?: string)
    ═══════════════════════════════════════════════════════ */
 
 export default function Admin() {
+  // identity and navigation state for the admin session
   const [token, setToken] = useState('');
   const [adminName, setAdminName] = useState('');
   const [tab, setTab] = useState<AdminTab>('users');
@@ -108,16 +112,19 @@ export default function Admin() {
   useEffect(() => {
     const raw = localStorage.getItem(ADMIN_KEY);
     if (!raw) return;
+    // try to parse the persisted admin session from localStorage
     try {
       const data = JSON.parse(raw);
       setToken(data.token);
       setAdminName(data.username);
     } catch {
+      // corrupt storage entry — clear it so login screen shows
       localStorage.removeItem(ADMIN_KEY);
     }
   }, []);
 
   /* ── data refresh ── */
+  // fetches the data list for whichever tab is currently active
   const refresh = useCallback(async () => {
     if (!token) return;
     try {
@@ -133,16 +140,19 @@ export default function Admin() {
     }
   }, [token, tab]);
 
+  // re-fetch whenever the active tab or token changes
   useEffect(() => { void refresh(); }, [refresh]);
 
   /* ── admin login ── */
   async function handleLogin(e: FormEvent) {
     e.preventDefault();
     try {
+      // authenticate against the admin-only endpoint which rejects non-admin roles
       const res = await adminApi<{ token: string; username: string }>('/api/admin/login', {
         method: 'POST',
         body: JSON.stringify({ username: loginUser, password: loginPass }),
       });
+      // store session in both React state and localStorage for persistence
       setToken(res.token);
       setAdminName(res.username);
       localStorage.setItem(ADMIN_KEY, JSON.stringify(res));
@@ -152,6 +162,7 @@ export default function Admin() {
     }
   }
 
+  // clears the admin session from state and storage
   function handleLogout() {
     setToken('');
     setAdminName('');
@@ -160,6 +171,7 @@ export default function Admin() {
   }
 
   /* ── user row expand toggle ── */
+  // toggles the expanded state for a user row to show/hide their active tokens
   function toggleExpand(userId: number) {
     setExpandedUsers((prev) => {
       const next = new Set(prev);
@@ -170,6 +182,8 @@ export default function Admin() {
   }
 
   /* ── video actions ── */
+
+  // populates the inline edit form with the current video values
   function startEdit(v: AdminVideo) {
     setEditingId(v.videoId);
     setEditForm({ ...v });
@@ -180,6 +194,7 @@ export default function Admin() {
     setEditForm({});
   }
 
+  // sends the edited fields to the PUT endpoint and refreshes the table
   async function saveEdit() {
     if (editingId === null) return;
     try {
@@ -195,6 +210,7 @@ export default function Admin() {
     }
   }
 
+  // flips the published/draft flag via the PATCH toggle endpoint
   async function togglePublish(videoId: number) {
     try {
       await adminApi(`/api/admin/videos/${videoId}/publish`, { method: 'PATCH' }, token);
@@ -205,6 +221,7 @@ export default function Admin() {
     }
   }
 
+  // permanently removes a video from the catalog
   async function deleteVideo(videoId: number) {
     try {
       await adminApi(`/api/admin/videos/${videoId}`, { method: 'DELETE' }, token);
@@ -215,6 +232,7 @@ export default function Admin() {
     }
   }
 
+  // parses numeric fields from the text inputs and posts a new video
   async function handleCreateVideo(e: FormEvent) {
     e.preventDefault();
     try {
@@ -233,6 +251,7 @@ export default function Admin() {
         }),
       }, token);
       setStatus(`Video created.`);
+      // reset form fields after successful creation
       setNewId(''); setNewTitle(''); setNewGenre(''); setNewYear('');
       setNewPrice(''); setNewHours(''); setNewOwner('');
       await refresh();
@@ -242,6 +261,8 @@ export default function Admin() {
   }
 
   /* ── rental actions ── */
+
+  // forces a return on behalf of any user via the admin endpoint
   async function adminReturn(videoId: number, userId: number) {
     try {
       await adminApi(`/api/admin/rentals/${videoId}/return`, {
@@ -255,8 +276,10 @@ export default function Admin() {
     }
   }
 
+  // rents a video on behalf of a target user specified in the form
   async function handleAdminRent(e: FormEvent) {
     e.preventDefault();
+    // parse the two numeric IDs from the text inputs
     const vid = parseInt(rentVideoId, 10);
     const uid = parseInt(rentUserId, 10);
     if (isNaN(vid) || isNaN(uid)) {
@@ -269,6 +292,7 @@ export default function Admin() {
         body: JSON.stringify({ userId: uid }),
       }, token);
       setStatus(`Rented video #${vid} for user #${uid}.`);
+      // clear the form after a successful rent
       setRentVideoId('');
       setRentUserId('');
       await refresh();
@@ -279,6 +303,7 @@ export default function Admin() {
 
   /* ══════════ RENDER ══════════ */
 
+  // when there is no token the user hasn't authenticated yet — show the login card
   if (!token) {
     return (
       <div className="admin-app">
@@ -387,6 +412,7 @@ export default function Admin() {
                           </button>
                         </td>
                       </tr>
+                      {/* collapsible row that reveals active session tokens and expiry timestamps */}
                       {expandedUsers.has(u.userId) && (
                         <tr key={`${u.userId}-tokens`} className="admin-token-row">
                           <td colSpan={6}>
@@ -464,6 +490,7 @@ export default function Admin() {
                   </tr>
                 </thead>
                 <tbody>
+                  {/* each video row flips between read-only display and inline edit mode */}
                   {videos.map((v) =>
                     editingId === v.videoId ? (
                       <tr key={v.videoId} className="admin-edit-row">
