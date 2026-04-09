@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # Video Renting System (CST2550)
 
 An indie-first pay-per-title video rental marketplace where customers rent individual titles and small studios can publish their own catalogs.
