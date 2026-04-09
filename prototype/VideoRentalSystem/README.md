@@ -1,66 +1,66 @@
-# Video Rental Store Management System (CST2550 prototype)
+# Video rental coursework (CST2550)
 
-WinForms desktop app (**C# / .NET Framework 4.8**) for the group coursework: video rental rows live in a **SQL Server LocalDB** `.mdf` file (path chosen at runtime — **no hardcoded database path**), and the app keeps a **custom singly linked list** in memory for searching (no `List<T>` / `Dictionary` inside that structure).
+Small **WinForms** app in **C#** (**.NET Framework 4.8**) that manages video rental records using a custom linked list data structure.
 
-This lines up with the brief: custom data structure + complexity comments, SQL script in repo, readme, MSTest unit tests, and **no third-party NuGet packages in the WinForms app** (only built-in `System.Data.SqlClient`). The test project still uses MSTest packages from NuGet, which is normal for coursework test harnesses.
+## What it does
 
-## Prerequisites
+- Lets you load a database file at runtime by typing the path or using the browse button — no hardcoded paths, the brief was clear about that.
+- Uses **SQL Server LocalDB** with a **`.mdf`** file to store records.
+- Keeps everything in memory using a hand-built singly linked list (`RentalLinkedList.cs`) — no `List<T>` or `Dictionary`, which was one of the rules.
+- The linked list methods have **time complexity comments** on them as required.
+- There's also a small animated character on the form with moving arms — the marking scheme mentioned an optional "AI agent with arms" for extra marks so I gave it a go.
 
-- Windows
-- **.NET Framework 4.8 Developer Pack** or Visual Studio with .NET desktop development workload
-- [.NET SDK](https://dotnet.microsoft.com/download) (8.x is fine) if you want `dotnet build` / `dotnet test` from the command line
-- **SQL Server Express LocalDB** (often installed with Visual Studio). If Connect fails, install [SQL Server Express](https://www.microsoft.com/sql-server/sql-server-downloads) and include LocalDB.
+## What you need
 
-## Folder layout
+- **Windows**
+- **.NET Framework 4.8** (or Visual Studio with the desktop workload)
+- **.NET SDK 8.x** if you want to build from terminal
+- **LocalDB** — if the Connect button crashes, this is probably why. Install it through Visual Studio (tick the data storage workload) or grab SQL Server Express and make sure LocalDB is included. This took me a while to sort out so don't skip it.
+
+## Folder structure
 
 ```
 VideoRentalSystem/
-  VideoRentalSystem/          WinForms project (net48, no app NuGet)
-  VideoRentalSystem.Tests/    MSTest project
-  schema.sql                  T-SQL CREATE + sample INSERTs
+  VideoRentalSystem/        ← WinForms app
+  VideoRentalSystem.Tests/  ← MSTest unit tests
+  schema.sql                ← T-SQL for LocalDB: creates table + 12 sample rows
   README.md
 ```
 
-## Build (command line)
+## How to build
+
+Open the `.sln` in Visual Studio and build normally, or from terminal:
 
 ```bash
 cd path\to\VideoRentalSystem
 dotnet build VideoRentalSystem.sln -c Release
 ```
 
-Or open `VideoRentalSystem.sln` in Visual Studio and build (F6).
-
-## Run the app
+## How to run
 
 ```bash
 dotnet run --project VideoRentalSystem/VideoRentalSystem.csproj -c Release
 ```
 
-Or set the WinForms project as startup and press F5.
+Or just hit **F5** in Visual Studio with the WinForms project set as startup.
 
-### Database file (runtime)
+## Connecting the database
 
-1. Click **Browse...** and choose a **full path** ending in `.mdf` (a new filename is OK — the app will try to create the files on first use).
-2. Click **Connect**. The app attaches the database with `(localdb)\MSSQLLocalDB` and creates `dbo.VideoRentals` if needed.
-3. Optional: open the same `.mdf` in SSMS, run `schema.sql` to wipe/reload the 12 sample rows, then use **Show all videos** in the app.
+- Type a path or browse to a **`.mdf`** file — it doesn't need to exist yet.
+- Hit **Connect** — it'll create the file and the `VideoRentals` table automatically.
+- If you want the sample data, run **`schema.sql`** against the `.mdf` in **SSMS** first, then click **Show all videos**.
 
-## Run unit tests
+## Running the tests
 
 ```bash
 dotnet test VideoRentalSystem.sln -c Release
 ```
 
-Tests exercise **`RentalLinkedList`** (add, remove, search, empty list, duplicate ID).
+The tests cover the linked list — adding, removing, searching, empty list edge cases, duplicate IDs etc. I'm doing the tester role so there's more thorough manual testing documented in the report separately.
 
-## Extra feature (optional marking)
+## Notes for the report
 
-The form includes a small animated **“rental helper”** figure with moving arms (`RentalAgentPanel.cs`) as a light-hearted nod to the “AI agent with arms” extra on the rubric.
+- Pseudocode and big-O analysis go in the **PDF** report, not in the code.
+- I added a few Harvard-style reference comments in `RentalDatabase.cs` and `RentalAgentPanel.cs` as examples of the format.
 
-## Report / academic notes
-
-- Put **pseudo-code** and **complexity discussion** in the PDF report (not in code), as the brief asks.
-- Add any extra references you use in **Harvard** style in comments (a couple of Microsoft Learn links are already stubbed in `RentalDatabase.cs` and `RentalAgentPanel.cs` as examples).
-
-## Tester role
-
-Use this prototype to tie your **test plan** (table of cases) to the MSTest methods, and mention **integration** tests you ran manually (e.g. Connect, seed `schema.sql`, rent/return) in the report.
+If it doesn't connect first try, check LocalDB is actually installed — that's almost always the problem.
