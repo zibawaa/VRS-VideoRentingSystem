@@ -1,0 +1,22 @@
+Functional Requirements
+.User login Interface(Username and psw)
+.Forgotten password(optional)
+.user authentication(credential verification)
+.browse video catalogue(video shall include e.g,title,genre,rental price,avalibility)
+.search and filter videos(filters with genre and name)
+.rent a video(record to be maintained)SQL 
+.rental duration(fixed rental period, rental date,return date)
+.return video(rental record updates,availibility update)
+.admin user(admin who can access videos &update the titles etc).
+.rental history(video name, rental period, return date)
+
+
+NON-Functional Requirements
+.security(users passwords needs to be securely stored)
+.only authenticated users have access to videos.
+.perfromance(user commands to be executed efficiently)
+.scalability(system should support increasing number of users)
+.Reliabilty(data consistency during rental transactions, failed operations shall not corrupt database).
+.usability(intuitive user interface, rental to be done using minimal steps)
+.data persistence(relationship to be maintained b/w users,videos,rentals)
+.maintainability(system should be a modular architecture, code to be documented well).
